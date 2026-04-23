@@ -1,3 +1,3 @@
 from tools.file import *
-from tools.plot import *
+from tools.plots import *
 from tools.seed import *
