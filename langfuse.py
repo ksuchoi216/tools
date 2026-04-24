@@ -1,6 +1,8 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
+from langfuse import observe, propagate_attributes
+from langfuse.langchain import CallbackHandler
 from loguru import logger
 
 PROMPT_FILE_SUFFIX = ".txt"
@@ -158,4 +160,5 @@ def run_with_langfuse(
                 [input_data], config={"callbacks": [langfuse_handler]}
             )
         else:
+            raise ValueError(f"Unsupported call_type: {call_type}")
             raise ValueError(f"Unsupported call_type: {call_type}")
