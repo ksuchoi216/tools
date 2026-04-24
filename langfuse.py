@@ -78,3 +78,84 @@ def upload_prompts(prompt_names: list[str], prompt_dir: str) -> list[str]:
         logger.info("Prompt {} uploaded from {}.", prompt_name, prompt_file)
 
     return uploaded_prompt_names
+
+
+@observe
+def run_graph_with_langfuse(
+    graph,
+    state,
+    *,
+    trace_name,
+    session_id,
+    user_id="ksuchoi216",
+    tags=None,
+    call_type: Literal["batch", "invoke"] = "invoke",
+):
+    langfuse_handler = CallbackHandler()
+
+    graph = graph.with_config(
+        {
+            "callbacks": [langfuse_handler],
+        }
+    )
+
+    if call_type == "batch":
+        # check state is list for batch call
+        if not isinstance(state, list):
+            raise ValueError("State must be a list for batch call.")
+        # log length of state for batch call
+        logger.info("Running graph in batch mode with {} states.", len(state))
+
+    with propagate_attributes(
+        trace_name=trace_name,
+        session_id=session_id,
+        user_id=user_id,
+        tags=tags or [],
+    ):
+        if call_type == "invoke":
+            return graph.invoke(state)
+        elif call_type == "batch":
+            return graph.batch(state)
+        else:
+            raise ValueError(f"Unsupported call_type: {call_type}")
+
+        # langfuse.set_current_trace_io(
+        #     input=state,
+        #     output=result,
+        # )
+
+
+@observe
+def run_with_langfuse(
+    generator,
+    input_data,
+    *,
+    trace_name,
+    session_id,
+    user_id="ksuchoi216",
+    tags=None,
+    call_type: Literal["batch", "invoke"] = "invoke",
+):
+    langfuse_handler = CallbackHandler()
+
+    if call_type == "batch":
+        # check state is list for batch call
+        if not isinstance(input_data, list):
+            raise ValueError("State must be a list for batch call.")
+
+    with propagate_attributes(
+        trace_name=trace_name,
+        session_id=session_id,
+        user_id=user_id,
+        tags=tags or [],
+    ):
+        if call_type == "invoke":
+            return generator.invoke(
+                input_data, config={"callbacks": [langfuse_handler]}
+            )
+        elif call_type == "batch":
+            return generator.batch(
+                [input_data], config={"callbacks": [langfuse_handler]}
+            )
+        else:
+            raise ValueError(f"Unsupported call_type: {call_type}")
