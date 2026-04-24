@@ -1,48 +1,80 @@
-from typing import Optional
+from pathlib import Path
+from typing import Any
 
-from langfuse import get_client
 from loguru import logger
 
+PROMPT_FILE_SUFFIX = ".txt"
 
-def check_langfuse_available():
-    langfuse = get_client()
-    if langfuse.auth_check():
-        logger.info("Langfuse is available and authenticated.")
-        return True, langfuse
-    else:
-        logger.warning("Langfuse is not available or authentication failed.")
-        return False, None
+
+def _get_langfuse_client() -> Any:
+    try:
+        from langfuse import get_client
+    except ImportError as exc:
+        raise RuntimeError("Langfuse is not installed.") from exc
+    return get_client()
+
+
+def _get_prompt_file_path(prompt_dir: str | Path, prompt_name: str) -> Path:
+    return Path(prompt_dir) / f"{prompt_name}{PROMPT_FILE_SUFFIX}"
 
 
 def load_prompt(
-    prompt_name: str, prompt_dir: Optional[str] = None, is_local: bool = False
-):
+    prompt_name: str, prompt_dir: str | None = None, is_local: bool = False
+) -> str:
     if is_local:
         if prompt_dir is None:
             raise ValueError("prompt_dir must be provided when is_local is True.")
-        prompt = open(prompt_dir, "r").read()
-        return prompt
-    else:
-        prompt = get_client().get_prompt(prompt_name).get_langchain_prompt()
-        logger.info("Prompt {} loaded from Langfuse.", prompt_name)
-        return prompt
+        return Path(prompt_dir).read_text(encoding="utf-8")
+
+    prompt = _get_langfuse_client().get_prompt(prompt_name).get_langchain_prompt()
+    logger.info("Prompt {} loaded from Langfuse.", prompt_name)
+    return prompt
 
 
-def upload_prompt(prompt_name: str, prompt_dir: str):
-    # upload prompt from local file system(prompt_dir) to langfuse with prompt_name
-    is_langfuse_available, langfuse = check_langfuse_available()
-    if is_langfuse_available:
-        prompt_text = open(prompt_dir, "r").read()
+def upload_prompt(prompt_name: str, prompt_text: str):
+    langfuse = _get_langfuse_client()
+    try:
         langfuse.create_prompt(
             name=prompt_name,
             type="text",
             prompt=prompt_text,
-            labels=["production"],  # optionally, directly promote to production
+            labels=["production"],
         )
-        logger.info("Prompt {} uploaded to Langfuse from {}.", prompt_name, prompt_dir)
-    else:
-        logger.error(
-            "Failed to upload prompt {} to Langfuse. Langfuse is not available.",
-            prompt_name,
+        logger.info("Prompt {} uploaded to Langfuse.", prompt_name)
+    except Exception as e:
+        logger.error("Failed to upload prompt {}: {}", prompt_name, e)
+
+
+def download_prompts(prompt_names: list[str], prompt_dir: str) -> dict[str, Path]:
+    langfuse = _get_langfuse_client()
+    save_dir = Path(prompt_dir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    saved_files: dict[str, Path] = {}
+    for prompt_name in prompt_names:
+        prompt_text = langfuse.get_prompt(prompt_name).get_langchain_prompt()
+        prompt_file = _get_prompt_file_path(save_dir, prompt_name)
+        prompt_file.write_text(prompt_text, encoding="utf-8")
+        saved_files[prompt_name] = prompt_file
+        logger.info("Prompt {} downloaded to {}.", prompt_name, prompt_file)
+
+    return saved_files
+
+
+def upload_prompts(prompt_names: list[str], prompt_dir: str) -> list[str]:
+    langfuse = _get_langfuse_client()
+
+    uploaded_prompt_names: list[str] = []
+    for prompt_name in prompt_names:
+        prompt_file = _get_prompt_file_path(prompt_dir, prompt_name)
+        prompt_text = prompt_file.read_text(encoding="utf-8")
+        langfuse.create_prompt(
+            name=prompt_name,
+            type="text",
+            prompt=prompt_text,
+            labels=["production"],
         )
-        raise RuntimeError("Langfuse is not available. Cannot upload prompt.")
+        uploaded_prompt_names.append(prompt_name)
+        logger.info("Prompt {} uploaded from {}.", prompt_name, prompt_file)
+
+    return uploaded_prompt_names
