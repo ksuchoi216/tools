@@ -9,7 +9,7 @@ import yaml
 from loguru import logger
 
 
-def load(path) -> Any:
+def load_file(path) -> Any:
     extension = path.split(".")[-1]
     try:
         if extension == "txt":
@@ -39,7 +39,7 @@ def load(path) -> Any:
         ) from e
 
 
-def save(data: Any, path: str):
+def save_file(data: Any, path: str):
     parent_dir = os.path.dirname(path)
     if not os.path.exists(parent_dir):
         os.makedirs(parent_dir)

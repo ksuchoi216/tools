@@ -42,7 +42,6 @@ def build_prompt(
     return load_prompt(
         prompt_key,
         prompt_dir=local_prompt_dir,
-        is_local=local_prompt,
     )
 
 
@@ -86,6 +85,7 @@ def build_llm(model_config: OpenAINodeConfig) -> ChatOpenAI:
 
     if model_config.prompt_cache_key:
         llm_kwargs["extra_body"] = {"prompt_cache_key": model_config.prompt_cache_key}
+        logger.info("Using prompt_cache_key: %s", model_config.prompt_cache_key)
     return ChatOpenAI(**llm_kwargs)
 
 

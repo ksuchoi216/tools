@@ -25,9 +25,8 @@ def load_prompt(
     prompt_key: str,
     *,
     prompt_dir: str | Path | None = None,
-    is_local: bool = False,
 ) -> BasePromptTemplate:
-    if is_local:
+    if prompt_dir is None:
         prompt_path = _resolve_local_prompt_path(prompt_key, prompt_dir)
         prompt_text = prompt_path.read_text(encoding="utf-8")
         logger.info("Prompt {} loaded from local file {}.", prompt_key, prompt_path)
@@ -48,6 +47,20 @@ def load_prompt(
     if isinstance(prompt, str):
         return PromptTemplate.from_template(prompt)
     raise TypeError(f"Unsupported Langfuse prompt type: {type(prompt)!r}")
+
+
+# TODO: add a function about downloading prompts from langfuse
+def download_prompt(
+    prompt_key: str,
+    *,
+    prompt_dir: str | Path | None = None,
+) -> None:
+    pass
+
+
+# TODO: set a function about changing project api key by using os.environ
+def set_project_api_key():
+    pass
 
 
 @observe

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Literal
 
 import yaml
@@ -38,19 +39,10 @@ class OpenAIConfigCollection(dict[str, OpenAINodeConfig]):
         return sorted(set(super().__dir__()) | set(self.keys()))
 
 
-def _resolve_config_path(config_path: str | Path, *, is_test: bool = False) -> Path:
-    path = Path(config_path)
-    if is_test:
-        return path.with_name(f"{path.stem}_test{path.suffix}")
-    return path
-
-
-def _load_models_config(
+def _load_config(
     config_path: str | Path,
-    *,
-    is_test: bool = False,
 ) -> dict[str, dict[str, Any]]:
-    path = _resolve_config_path(config_path, is_test=is_test)
+    path = Path(config_path)
     if not path.exists():
         raise FileNotFoundError(f"Config file not found: {path}")
     with path.open("r", encoding="utf-8") as fp:
@@ -60,21 +52,59 @@ def _load_models_config(
     return data
 
 
+def to_namespace(value: Any) -> Any:
+    if isinstance(value, dict):
+        return SimpleNamespace(
+            **{key: to_namespace(item) for key, item in value.items()}
+        )
+
+    if isinstance(value, list):
+        return [to_namespace(item) for item in value]
+
+    return value
+
+
 @lru_cache(maxsize=None)
-def load_config(
-    session: str,
-    config_path: str | Path,
-    *,
-    is_test: bool = False,
+def load_model_config(
+    config_path: str | Path = "configs/models.yaml",
 ) -> OpenAIConfigCollection:
-    session_config = _load_models_config(config_path, is_test=is_test).get(session)
-    if not isinstance(session_config, dict):
-        raise KeyError(f"Session config not found: {session}")
+    session_config = _load_config(config_path)
 
     configs = OpenAIConfigCollection()
-    for config_name, node_data in session_config.items():
+    for node_name, node_data in session_config.items():
         if not isinstance(node_data, dict):
-            raise ValueError(f"Invalid node config: {session}.{config_name}")
-        configs[config_name] = OpenAINodeConfig.model_validate(node_data)
+            raise ValueError(f"Invalid node config: {node_name}")
+        configs[node_name] = OpenAINodeConfig.model_validate(node_data)
 
-    return configs
+    return to_namespace(configs)
+
+
+def load_general_config(
+    config_path: str | Path = "configs/general.yaml",
+):
+
+    config = _load_config(config_path)
+    return to_namespace(config)
+
+
+def load_config(
+    general_config_path: str | Path | None = "configs/general.yaml",
+    model_config_path: str | Path | None = "configs/models.yaml",
+) -> SimpleNamespace:
+
+    general_config = (
+        load_general_config(general_config_path)
+        if general_config_path is not None
+        else SimpleNamespace()
+    )
+
+    model_config = (
+        load_model_config(model_config_path)
+        if model_config_path is not None
+        else OpenAIConfigCollection()
+    )
+
+    return SimpleNamespace(
+        **vars(general_config),
+        models=model_config,
+    )
