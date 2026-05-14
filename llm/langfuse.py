@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from langchain_core.prompts import BasePromptTemplate, PromptTemplate
+from langchain_core.prompts import BasePromptTemplate
 from langfuse import observe, propagate_attributes
 from langfuse.langchain import CallbackHandler
 from loguru import logger
@@ -21,16 +21,17 @@ def _resolve_local_prompt_path(
     return base_path / f"{prompt_key}{PROMPT_FILE_SUFFIX}"
 
 
+#
 def load_prompt(
     prompt_key: str,
     *,
     prompt_dir: str | Path | None = None,
-) -> BasePromptTemplate:
+) -> BasePromptTemplate | str:
     if prompt_dir is None:
         prompt_path = _resolve_local_prompt_path(prompt_key, prompt_dir)
         prompt_text = prompt_path.read_text(encoding="utf-8")
         logger.info("Prompt {} loaded from local file {}.", prompt_key, prompt_path)
-        return PromptTemplate.from_template(prompt_text)
+        return prompt_text
 
     try:
         from langfuse import get_client
@@ -45,7 +46,7 @@ def load_prompt(
     if isinstance(prompt, BasePromptTemplate):
         return prompt
     if isinstance(prompt, str):
-        return PromptTemplate.from_template(prompt)
+        return prompt
     raise TypeError(f"Unsupported Langfuse prompt type: {type(prompt)!r}")
 
 

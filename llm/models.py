@@ -10,3 +10,12 @@ class ModelNames(Enum):
     gpt_54_nano = "gpt-5.4-nano"
     gpt_54_mini = "gpt-5.4-mini"
     gpt_54 = "gpt-5.4"
+
+REASONING_MODELS = {
+    ModelNames.gpt_5_nano,
+    ModelNames.gpt_5_mini,
+    ModelNames.gpt_5,
+    ModelNames.gpt_54_nano,
+    ModelNames.gpt_54_mini,
+    ModelNames.gpt_54,
+}

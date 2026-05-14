@@ -7,3 +7,6 @@ def show_graph(graph, is_save=False, save_path="graph.png"):
     if is_save:
         with open(save_path, "wb") as f:
             f.write(img)
+
+
+# print

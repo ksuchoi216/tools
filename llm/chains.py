@@ -5,44 +5,16 @@ from pathlib import Path
 from typing import Any
 
 from langchain_core.output_parsers import PydanticOutputParser, StrOutputParser
-from langchain_core.prompts import BasePromptTemplate, PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from loguru import logger
 from pydantic import BaseModel
 
 from .config import OpenAINodeConfig
 from .langfuse import load_prompt
-from .models import ModelNames
+from .models import REASONING_MODELS, ModelNames
 
 ParserType = PydanticOutputParser | StrOutputParser
-REASONING_MODELS = {
-    ModelNames.gpt_5_nano,
-    ModelNames.gpt_5_mini,
-    ModelNames.gpt_5,
-    ModelNames.gpt_54_nano,
-    ModelNames.gpt_54_mini,
-    ModelNames.gpt_54,
-}
-
-
-def build_prompt(
-    *,
-    prompt_text: str | None = None,
-    prompt_key: str | None = None,
-    local_prompt: bool = False,
-    local_prompt_dir: str | Path | None = None,
-) -> BasePromptTemplate:
-    if prompt_text is not None and prompt_key is not None:
-        raise ValueError("Provide either prompt_text or prompt_key, not both.")
-    if prompt_text is None and prompt_key is None:
-        raise ValueError("Either prompt_text or prompt_key must be provided.")
-    if prompt_text is not None:
-        return PromptTemplate.from_template(prompt_text)
-    assert prompt_key is not None
-    return load_prompt(
-        prompt_key,
-        prompt_dir=local_prompt_dir,
-    )
 
 
 def validate_model_name(model_name: str) -> ModelNames:
@@ -120,16 +92,15 @@ def build_chain(
     *,
     model_config: OpenAINodeConfig,
     prompt_key: str,
-    local_prompt: bool = False,
     local_prompt_dir: str | Path | None = None,
     output_parser=None,
+    is_chat: bool = False,
     tools: Sequence[Any] | None = None,
     tool_choice: Any = None,
-) -> tuple[BasePromptTemplate, ParserType, Any]:
-    prompt = build_prompt(
-        prompt_key=prompt_key,
-        local_prompt=local_prompt,
-        local_prompt_dir=local_prompt_dir,
+):
+    prompt = load_prompt(
+        prompt_key,
+        prompt_dir=local_prompt_dir,
     )
     llm = build_bound_llm(
         model_config,
@@ -137,4 +108,14 @@ def build_chain(
         tool_choice=tool_choice,
     )
     parser = build_output_parser(output_parser)
-    return prompt, parser, prompt | llm | parser
+
+    if is_chat:
+        chain = llm | parser
+    else:
+        prompter = PromptTemplate.from_template(self.prompt)
+        chain = prompter | llm | parser
+
+    return prompt, parser, chain
+
+
+# def build_chain_chat(self, prompt, llm, parser, is_chat: bool = False):
