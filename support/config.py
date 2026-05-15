@@ -87,10 +87,11 @@ def load_general_config(
     return to_namespace(config)
 
 
-def load_config(
-    general_config_path: str | Path | None = "configs/general.yaml",
-    model_config_path: str | Path | None = "configs/models.yaml",
-) -> SimpleNamespace:
+def load_config(config_dir: str | Path = "configs") -> SimpleNamespace:
+    config_dir = Path(config_dir)
+
+    general_config_path: str | Path = config_dir / "general.yaml"
+    model_config_path: str | Path = config_dir / "models.yaml"
 
     general_config = (
         load_general_config(general_config_path)
